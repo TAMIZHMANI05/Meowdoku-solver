@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:background="#DD222222"
+    android:padding="8dp"
+    android:gravity="center_vertical">
+
+    <TextView
+        android:id="@+id/dragHandle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="::"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:paddingEnd="8dp" />
+
+    <EditText
+        android:id="@+id/editRows"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:text="9"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:hint="rows" />
+
+    <EditText
+        android:id="@+id/editCols"
+        android:layout_width="40dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:inputType="number"
+        android:text="9"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:hint="cols" />
+
+    <Button
+        android:id="@+id/btnScan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:text="Scan" />
+
+    <Button
+        android:id="@+id/btnClear"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:text="Clear" />
+
+    <Button
+        android:id="@+id/btnStop"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:text="Stop" />
+
+</LinearLayout>
