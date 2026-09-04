@@ -11,6 +11,7 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -181,11 +182,38 @@ class OverlayService : Service() {
             x = 100
             y = 100
         }
+        val rowsInput = view.findViewById<EditText>(R.id.editRows)
+        val colsInput = view.findViewById<EditText>(R.id.editCols)
+        val toleranceInput = view.findViewById<EditText>(R.id.editTolerance)
+
+        fun setKeyboardEnabled(enabled: Boolean) {
+            val nextFlags = if (enabled) {
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            } else {
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            }
+            if (params.flags != nextFlags) {
+                params.flags = nextFlags
+                windowManager.updateViewLayout(view, params)
+            }
+        }
+
+        fun enableInput(editText: EditText) {
+            setKeyboardEnabled(true)
+            editText.isFocusableInTouchMode = true
+            editText.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(editText, InputMethodManager.SHOW_IMPLICIT)
+        }
 
         var startX = 0; var startY = 0; var touchX = 0f; var touchY = 0f
         view.findViewById<View>(R.id.dragHandle).setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
+                    rowsInput.clearFocus()
+                    colsInput.clearFocus()
+                    toleranceInput.clearFocus()
+                    setKeyboardEnabled(false)
                     startX = params.x; startY = params.y
                     touchX = event.rawX; touchY = event.rawY
                     true
@@ -197,6 +225,15 @@ class OverlayService : Service() {
                     true
                 }
                 else -> false
+            }
+        }
+
+        listOf(rowsInput, colsInput, toleranceInput).forEach { input ->
+            input.setOnTouchListener { _, event ->
+                if (event.action == MotionEvent.ACTION_DOWN) {
+                    enableInput(input)
+                }
+                false
             }
         }
 
