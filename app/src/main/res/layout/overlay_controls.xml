@@ -18,7 +18,7 @@
 
     <EditText
         android:id="@+id/editRows"
-        android:layout_width="40dp"
+        android:layout_width="36dp"
         android:layout_height="wrap_content"
         android:inputType="number"
         android:text="9"
@@ -28,7 +28,7 @@
 
     <EditText
         android:id="@+id/editCols"
-        android:layout_width="40dp"
+        android:layout_width="36dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="4dp"
         android:inputType="number"
@@ -37,11 +37,29 @@
         android:textSize="14sp"
         android:hint="cols" />
 
+    <EditText
+        android:id="@+id/editTolerance"
+        android:layout_width="36dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:inputType="number"
+        android:text="30"
+        android:textColor="#FFFFFF"
+        android:textSize="14sp"
+        android:hint="tol" />
+
+    <Button
+        android:id="@+id/btnDebug"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="6dp"
+        android:text="Debug" />
+
     <Button
         android:id="@+id/btnScan"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_marginStart="4dp"
         android:text="Scan" />
 
     <Button

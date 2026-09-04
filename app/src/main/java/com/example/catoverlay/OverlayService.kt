@@ -34,6 +34,7 @@ class OverlayService : Service() {
     private var controlsView: View? = null
     private var controlsParams: WindowManager.LayoutParams? = null
     private val markerViews = mutableListOf<View>()
+    private val debugViews = mutableListOf<View>()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -199,8 +200,9 @@ class OverlayService : Service() {
             }
         }
 
+        view.findViewById<Button>(R.id.btnDebug).setOnClickListener { performDebugScan(view) }
         view.findViewById<Button>(R.id.btnScan).setOnClickListener { performScan(view) }
-        view.findViewById<Button>(R.id.btnClear).setOnClickListener { clearMarkers() }
+        view.findViewById<Button>(R.id.btnClear).setOnClickListener { clearMarkers(); clearDebugGrid() }
         view.findViewById<Button>(R.id.btnStop).setOnClickListener { stopSelf() }
 
         windowManager.addView(view, params)
@@ -215,8 +217,10 @@ class OverlayService : Service() {
         val fParams = frameParams ?: return
         val rows = controls.findViewById<EditText>(R.id.editRows).text.toString().toIntOrNull() ?: 9
         val cols = controls.findViewById<EditText>(R.id.editCols).text.toString().toIntOrNull() ?: 9
+        val tolerance = controls.findViewById<EditText>(R.id.editTolerance).text.toString().toIntOrNull() ?: 30
 
         clearMarkers()
+        clearDebugGrid()
         // Hide the frame border itself so it isn't sampled as part of the board.
         frame.visibility = View.INVISIBLE
 
@@ -242,17 +246,104 @@ class OverlayService : Service() {
             }
 
             val crop = android.graphics.Bitmap.createBitmap(bitmap, left, top, width, height)
-            val colors = GridColorReader.readColors(crop, rows, cols)
-            val solution = CatSolver.solve(colors)
+            val board = GridColorReader.readColors(crop, rows, cols, tolerance)
+            val solution = CatSolver.solve(board.ids)
 
             frame.visibility = View.VISIBLE
 
             if (solution == null) {
-                Toast.makeText(this, "No valid placement found — check rows/cols/calibration", Toast.LENGTH_LONG).show()
+                Toast.makeText(
+                    this,
+                    "No valid placement found (${board.palette.size} colors detected) — try Debug to check detection, or adjust tolerance",
+                    Toast.LENGTH_LONG
+                ).show()
             } else {
                 drawMarkers(solution, rows, cols, left, top, width, height)
             }
         }, 150)
+    }
+
+    /** Shows each cell's detected color id as a small numbered swatch, without solving.
+     *  Use this to sanity-check that cells you can see are the same color really got
+     *  the same id, and adjacent cells of different colors got different ids. */
+    private fun performDebugScan(controls: View) {
+        val frame = frameView ?: return
+        val fParams = frameParams ?: return
+        val rows = controls.findViewById<EditText>(R.id.editRows).text.toString().toIntOrNull() ?: 9
+        val cols = controls.findViewById<EditText>(R.id.editCols).text.toString().toIntOrNull() ?: 9
+        val tolerance = controls.findViewById<EditText>(R.id.editTolerance).text.toString().toIntOrNull() ?: 30
+
+        clearMarkers()
+        clearDebugGrid()
+        frame.visibility = View.INVISIBLE
+
+        handler.postDelayed({
+            val bitmap = captureManager.latest()
+            if (bitmap == null) {
+                Toast.makeText(this, "No frame captured yet, try again", Toast.LENGTH_SHORT).show()
+                frame.visibility = View.VISIBLE
+                return@postDelayed
+            }
+
+            val loc = IntArray(2)
+            frame.getLocationOnScreen(loc)
+            val left = loc[0].coerceIn(0, bitmap.width - 1)
+            val top = loc[1].coerceIn(0, bitmap.height - 1)
+            val width = fParams.width.coerceAtMost(bitmap.width - left)
+            val height = fParams.height.coerceAtMost(bitmap.height - top)
+
+            if (width <= 0 || height <= 0) {
+                Toast.makeText(this, "Frame is outside the captured screen", Toast.LENGTH_SHORT).show()
+                frame.visibility = View.VISIBLE
+                return@postDelayed
+            }
+
+            val crop = android.graphics.Bitmap.createBitmap(bitmap, left, top, width, height)
+            val board = GridColorReader.readColors(crop, rows, cols, tolerance)
+
+            frame.visibility = View.VISIBLE
+            drawDebugGrid(board, rows, cols, left, top, width, height)
+            Toast.makeText(this, "${board.palette.size} distinct colors detected — tap Debug again after adjusting tol", Toast.LENGTH_LONG).show()
+        }, 150)
+    }
+
+    private fun drawDebugGrid(board: GridColorReader.ColorBoard, rows: Int, cols: Int, left: Int, top: Int, width: Int, height: Int) {
+        val cellW = width / cols
+        val cellH = height / rows
+        val badgeSize = (minOf(cellW, cellH) * 0.7).toInt().coerceAtLeast(20)
+
+        for (r in 0 until rows) {
+            for (c in 0 until cols) {
+                val id = board.ids[r][c]
+                val label = android.widget.TextView(this).apply {
+                    text = id.toString()
+                    setTextColor(android.graphics.Color.WHITE)
+                    setBackgroundColor(android.graphics.Color.argb(200, 0, 0, 0))
+                    gravity = Gravity.CENTER
+                    textSize = 10f
+                }
+                val params = WindowManager.LayoutParams(
+                    badgeSize, badgeSize,
+                    overlayType(),
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                        WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,
+                    PixelFormat.TRANSLUCENT
+                ).apply {
+                    gravity = Gravity.TOP or Gravity.START
+                    x = left + c * cellW + cellW / 2 - badgeSize / 2
+                    y = top + r * cellH + cellH / 2 - badgeSize / 2
+                }
+                windowManager.addView(label, params)
+                debugViews.add(label)
+            }
+        }
+    }
+
+    private fun clearDebugGrid() {
+        for (v in debugViews) {
+            runCatching { windowManager.removeView(v) }
+        }
+        debugViews.clear()
     }
 
     private fun drawMarkers(catCol: IntArray, rows: Int, cols: Int, left: Int, top: Int, width: Int, height: Int) {
@@ -315,6 +406,7 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         clearMarkers()
+        clearDebugGrid()
         frameView?.let { runCatching { windowManager.removeView(it) } }
         controlsView?.let { runCatching { windowManager.removeView(it) } }
         captureManager.stop()
