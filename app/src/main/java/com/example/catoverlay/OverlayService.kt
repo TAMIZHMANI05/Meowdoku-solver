@@ -48,11 +48,22 @@ class OverlayService : Service() {
         if (intent != null && frameView == null) {
             val resultCode = intent.getIntExtra(EXTRA_RESULT_CODE, Activity.RESULT_CANCELED)
             val data = intent.getParcelableExtra<Intent>(EXTRA_DATA)
-            if (data != null) {
-                captureManager.start(resultCode, data)
+            try {
+                if (data != null) {
+                    captureManager.start(resultCode, data)
+                }
+                addCalibrationFrame()
+                addControlPanel()
+                Toast.makeText(this, "Overlay added — look for a red box + dark control bar", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    this,
+                    "Couldn't start overlay: ${e.message}. Check that " +
+                        "\"Display over other apps\" is ON for Cat Overlay in Settings > Apps.",
+                    Toast.LENGTH_LONG
+                ).show()
+                stopSelf()
             }
-            addCalibrationFrame()
-            addControlPanel()
         }
         return START_NOT_STICKY
     }
@@ -65,11 +76,29 @@ class OverlayService : Service() {
 
     // ---------------- Calibration frame (drag to move, handle to resize) ----------------
 
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density).toInt()
+
     private fun addCalibrationFrame() {
         val frame = FrameLayout(this).apply {
             setBackgroundResource(R.drawable.frame_border)
         }
-        val handleSize = (24 * resources.displayMetrics.density).toInt()
+        val label = android.widget.TextView(this).apply {
+            text = "DRAG ME onto the grid\n(pinch corner to resize)"
+            setTextColor(android.graphics.Color.WHITE)
+            setBackgroundColor(android.graphics.Color.parseColor("#CC000000"))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            textSize = 12f
+        }
+        frame.addView(
+            label,
+            FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.START
+            )
+        )
+        val handleSize = dp(28)
         val resizeHandle = View(this).apply {
             setBackgroundResource(R.drawable.resize_handle)
         }
@@ -78,16 +107,17 @@ class OverlayService : Service() {
             FrameLayout.LayoutParams(handleSize, handleSize, Gravity.BOTTOM or Gravity.END)
         )
 
+        val defaultSize = dp(280)
         val params = WindowManager.LayoutParams(
-            600, 600,
+            defaultSize, defaultSize,
             overlayType(),
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
                 WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
-            x = 100
-            y = 300
+            x = dp(40)
+            y = dp(120)
         }
 
         // Drag whole frame (touch anywhere except the resize handle).

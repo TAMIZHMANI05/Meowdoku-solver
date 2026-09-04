@@ -33,6 +33,19 @@ class CaptureManager(private val context: Context) {
             context.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         mediaProjection = projectionManager.getMediaProjection(resultCode, data)
 
+        // Required on Android 14+ (API 34): MediaProjection throws when used
+        // without a registered callback. Without this, createVirtualDisplay()
+        // below crashes and the whole service dies silently before the
+        // overlay frame is ever added.
+        mediaProjection?.registerCallback(object : MediaProjection.Callback() {
+            override fun onStop() {
+                virtualDisplay?.release()
+                imageReader?.close()
+                virtualDisplay = null
+                imageReader = null
+            }
+        }, handler)
+
         val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
